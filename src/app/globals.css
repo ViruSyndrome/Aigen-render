@@ -1,26 +1,129 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=Space+Grotesk:wght@400;500;700&display=swap');
 @import "tailwindcss";
 
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-deep:    #07080f;
+  --bg-mid:     #0e1120;
+  --bg-panel:   #111827;
+
+  --glass-bg:   rgba(255, 255, 255, 0.04);
+  --glass-bg-hover: rgba(255, 255, 255, 0.07);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-hover: rgba(255, 255, 255, 0.18);
+
+  --accent:     #00e5ff;
+  --accent-dim: rgba(0, 229, 255, 0.12);
+  --accent-hover: #33eeff;
+  --accent-glow: rgba(0, 229, 255, 0.35);
+
+  --pink:       #ff2d78;
+  --pink-dim:   rgba(255, 45, 120, 0.12);
+  --amber:      #fbbf24;
+  --amber-dim:  rgba(251, 191, 36, 0.1);
+  --green:      #10b981;
+  --red:        #ef4444;
+  --purple:     #a855f7;
+  --purple-dim: rgba(168, 85, 247, 0.12);
+
+  --text-main:  #e8edf5;
+  --text-muted: #64748b;
+  --text-sub:   #94a3b8;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.5);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,0.6);
+  --shadow-accent: 0 0 30px var(--accent-glow);
+
+  --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@theme {
+  --color-bg-deep: var(--bg-deep);
+  --color-bg-mid: var(--bg-mid);
+  --color-bg-panel: var(--bg-panel);
+  
+  --color-accent-main: var(--accent);
+  --color-accent-dim: var(--accent-dim);
+  --color-accent-hover: var(--accent-hover);
+  
+  --font-sans: 'Inter', 'Space Grotesk', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* Base Styles */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--bg-deep);
+  color: var(--text-main);
+  min-height: 100vh;
+  line-height: 1.6;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(0, 229, 255, 0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 90% 80%, rgba(168, 85, 247, 0.05) 0%, transparent 50%);
+}
+
+/* Glassmorphism Panels */
+.glass-panel {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(16px);
+  transition: border-color var(--transition), background-color var(--transition);
+}
+
+.glass-panel:hover {
+  border-color: var(--glass-border-hover);
+}
+
+/* Custom Webkit scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-full);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Animation utilities */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 1; box-shadow: 0 0 15px var(--accent-glow); }
+  50% { opacity: 0.75; box-shadow: 0 0 5px rgba(0, 229, 255, 0.15); }
+}
+
+.animate-spin-slow {
+  animation: spin 8s linear infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* Checkerboard background for transparency checks */
+.checkerboard {
+  background-image:
+    linear-gradient(45deg, #181b28 25%, transparent 25%),
+    linear-gradient(-45deg, #181b28 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #181b28 75%),
+    linear-gradient(-45deg, transparent 75%, #181b28 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
 }

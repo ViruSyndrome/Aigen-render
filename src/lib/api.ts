@@ -46,7 +46,7 @@ export const uploadImage = async (file: File): Promise<string> => {
   return data.filename;
 };
 
-export const submitGeneration = async (params: GenerationParams): Promise<{ promptId: string; clientId: string }> => {
+export const submitGeneration = async (params: GenerationParams): Promise<{ id: string; status: string }> => {
   const response = await fetch("/api/generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -58,16 +58,27 @@ export const submitGeneration = async (params: GenerationParams): Promise<{ prom
     throw new Error(errData.error || `Generation failed with status ${response.status}`);
   }
 
-  return response.json();
+  return response.json(); // returns { id, status }
 };
 
-export const checkHistory = async (promptId: string): Promise<string | null> => {
+export const checkHistory = async (id: string): Promise<string | null> => {
   try {
-    const response = await fetch(`/api/history?promptId=${promptId}`);
+    const response = await fetch(`/api/status?id=${id}`);
     if (!response.ok) return null;
     const data = await response.json();
-    return data.imageUrl || null;
-  } catch {
+    
+    if (data.status === 'failed' || data.status === 'canceled') {
+      throw new Error(`Generation ${data.status}`);
+    }
+    
+    if (data.status === 'completed') {
+      return data.url;
+    }
+    return null;
+  } catch (err: any) {
+    if (err.message === 'Generation failed' || err.message === 'Generation canceled') {
+      throw err;
+    }
     return null;
   }
 };

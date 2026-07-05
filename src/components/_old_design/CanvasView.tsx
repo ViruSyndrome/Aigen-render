@@ -178,13 +178,11 @@ export default function CanvasView({ history, spriteFrames, setSpriteFrames }: C
   };
 
   return (
-    <div className="flex-1 flex flex-col md:flex-row gap-5 p-4 md:p-6 min-h-0 overflow-y-auto">
-      {/* Settings Column - Top on mobile, Left on desktop */}
-      <div className="w-full md:w-80 flex flex-col gap-5 shrink-0">
-        
-        {/* Toolset Selector */}
-        <div className="glass-panel p-5 flex flex-col gap-4">
-          <div className="flex items-center gap-2 border-b border-white/5 pb-3">
+    <div className="flex-1 flex gap-5 p-5 min-h-0 overflow-y-auto">
+      {/* Settings Column */}
+      <div className="w-80 flex flex-col gap-4 shrink-0">
+        <div className="glass-panel p-4 flex flex-col gap-4">
+          <div className="flex items-center gap-2 border-b border-white/5 pb-2">
             <Compass className="w-4 h-4 text-accent-main" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-white">Canvas Toolset</h3>
           </div>
@@ -192,10 +190,10 @@ export default function CanvasView({ history, spriteFrames, setSpriteFrames }: C
           <div className="flex gap-2">
             <button
               onClick={() => setSubTab("draw")}
-              className={`flex-1 py-2 px-3 rounded-lg text-[11px] font-bold border flex items-center justify-center gap-1.5 transition-all ${
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all ${
                 subTab === "draw"
                   ? "bg-accent-dim text-accent-main border-accent-main/30 shadow-[0_0_12px_rgba(0,229,255,0.15)]"
-                  : "bg-transparent text-[#94a3b8] border-white/5 hover:bg-white/5 hover:text-white"
+                  : "bg-transparent text-[#94a3b8] border-white/5 hover:border-white/18 hover:text-white"
               }`}
             >
               <Brush className="w-3.5 h-3.5" />
@@ -203,10 +201,10 @@ export default function CanvasView({ history, spriteFrames, setSpriteFrames }: C
             </button>
             <button
               onClick={() => setSubTab("sprites")}
-              className={`flex-1 py-2 px-3 rounded-lg text-[11px] font-bold border flex items-center justify-center gap-1.5 transition-all ${
+              className={`flex-1 py-2 px-3 rounded-lg text-xs font-semibold border flex items-center justify-center gap-1.5 transition-all ${
                 subTab === "sprites"
                   ? "bg-accent-dim text-accent-main border-accent-main/30 shadow-[0_0_12px_rgba(0,229,255,0.15)]"
-                  : "bg-transparent text-[#94a3b8] border-white/5 hover:bg-white/5 hover:text-white"
+                  : "bg-transparent text-[#94a3b8] border-white/5 hover:border-white/18 hover:text-white"
               }`}
             >
               <Grid className="w-3.5 h-3.5" />
@@ -217,52 +215,50 @@ export default function CanvasView({ history, spriteFrames, setSpriteFrames }: C
 
         {/* Dynamic Tool Settings */}
         {subTab === "draw" ? (
-          <div className="glass-panel p-5 flex flex-col gap-4 animate-fade-in">
-            <div className="border-b border-white/5 pb-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-white">Brush Controls</h3>
+          <div className="glass-panel p-4 flex flex-col gap-4">
+            <div className="border-b border-white/5 pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-white">Brush controls</h3>
             </div>
 
             {/* Brush Tool Toggles */}
             <div className="flex gap-2">
               <button
                 onClick={() => setTool("brush")}
-                className={`flex-1 py-2 px-3 rounded text-[11px] font-bold border flex items-center justify-center gap-1.5 transition-all ${
+                className={`flex-1 py-1.5 px-3 rounded text-xs font-medium border flex items-center justify-center gap-1 transition-all ${
                   tool === "brush" ? "bg-accent-dim text-accent-main border-accent-main/20" : "bg-transparent text-[#94a3b8] border-white/5"
                 }`}
               >
-                <Brush className="w-3.5 h-3.5" /> Brush
+                <Brush className="w-3 h-3" /> Brush
               </button>
               <button
                 onClick={() => setTool("eraser")}
-                className={`flex-1 py-2 px-3 rounded text-[11px] font-bold border flex items-center justify-center gap-1.5 transition-all ${
+                className={`flex-1 py-1.5 px-3 rounded text-xs font-medium border flex items-center justify-center gap-1 transition-all ${
                   tool === "eraser" ? "bg-accent-dim text-accent-main border-accent-main/20" : "bg-transparent text-[#94a3b8] border-white/5"
                 }`}
               >
-                <Eraser className="w-3.5 h-3.5" /> Eraser
+                <Eraser className="w-3 h-3" /> Eraser
               </button>
             </div>
 
             {/* Color picker */}
             {tool === "brush" && (
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px] font-bold text-[#64748b] uppercase tracking-wider">Brush Color</label>
-                <div className="flex items-center gap-3">
-                  <div className="relative w-10 h-10 rounded-lg overflow-hidden border-2 border-white/10 shadow-inner">
-                    <input title="Upload Image"
-                      type="color"
-                      value={color}
-                      onChange={(e) => setColor(e.target.value)}
-                      className="absolute -top-2 -left-2 w-16 h-16 cursor-pointer"
-                    />
-                  </div>
+                <label className="text-[10px]">Brush Color</label>
+                <div className="flex items-center gap-2">
+                  <input title="Upload Image"
+                    type="color"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    className="w-10 h-8"
+                  />
                   <span className="text-xs font-mono font-bold text-white uppercase">{color}</span>
                 </div>
               </div>
             )}
 
             {/* Size slider */}
-            <div className="flex flex-col gap-1.5 pt-2">
-              <label className="flex justify-between items-center text-[10px] font-bold text-[#64748b] uppercase tracking-wider">
+            <div className="flex flex-col gap-1.5">
+              <label className="flex justify-between text-[10px]">
                 <span>Brush Size</span>
                 <span className="font-mono text-accent-main">{brushSize}px</span>
               </label>
@@ -272,39 +268,38 @@ export default function CanvasView({ history, spriteFrames, setSpriteFrames }: C
                 max="50"
                 value={brushSize}
                 onChange={(e) => setBrushSize(parseInt(e.target.value))}
-                className="w-full accent-accent-main mt-1"
               />
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col gap-2 pt-4 border-t border-white/5 mt-2">
+            <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
               <button
                 onClick={downloadDrawing}
-                className="btn-primary w-full py-2.5 h-auto text-xs"
+                className="w-full py-2 bg-green/10 hover:bg-green text-green hover:text-[#07080f] text-xs font-bold rounded-lg border border-green/20 hover:border-transparent transition-all flex items-center justify-center gap-1.5"
               >
-                <Download className="w-4 h-4 mr-1.5" /> Export Sketch
+                <Download className="w-3.5 h-3.5" /> Export Sketch
               </button>
               <button
                 onClick={clearCanvas}
-                className="btn-ghost w-full py-2.5 h-auto text-xs flex items-center justify-center gap-1.5 text-[#64748b] hover:text-red border border-transparent hover:border-red/20 hover:bg-red/5"
+                className="w-full py-2 bg-red/10 hover:bg-red text-red hover:text-white text-xs font-bold rounded-lg border border-red/20 hover:border-transparent transition-all flex items-center justify-center gap-1.5"
               >
-                <Trash2 className="w-4 h-4" /> Clear Canvas
+                <Trash2 className="w-3.5 h-3.5" /> Clear Sketch
               </button>
             </div>
           </div>
         ) : (
-          <div className="glass-panel p-5 flex flex-col gap-4 animate-fade-in">
-            <div className="border-b border-white/5 pb-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-white">Stitcher Controls</h3>
+          <div className="glass-panel p-4 flex flex-col gap-4">
+            <div className="border-b border-white/5 pb-2">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-white">Compiler controls</h3>
             </div>
 
             {/* Columns selector */}
             <div className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold text-[#64748b] uppercase tracking-wider">Grid Columns</label>
+              <label className="text-[10px]">Grid Columns</label>
               <select title="Blend Mode"
                 value={columns}
                 onChange={(e) => setColumns(parseInt(e.target.value))}
-                className="input-field bg-black/40 text-xs font-medium"
+                className="bg-black/45 text-sm"
               >
                 <option value="2">2 Columns</option>
                 <option value="3">3 Columns</option>
@@ -315,20 +310,20 @@ export default function CanvasView({ history, spriteFrames, setSpriteFrames }: C
             </div>
 
             {/* Actions */}
-            <div className="flex flex-col gap-2 pt-4 border-t border-white/5 mt-2">
+            <div className="flex flex-col gap-2 pt-2 border-t border-white/5">
               <button
                 onClick={compileSpriteSheet}
                 disabled={spriteFrames.length === 0}
-                className="btn-primary w-full py-2.5 h-auto text-xs"
+                className="w-full py-2.5 bg-accent-dim hover:bg-accent-main hover:text-bg-deep text-accent-main text-xs font-semibold rounded-lg border border-accent-main/20 hover:border-transparent transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <Grid className="w-4 h-4 mr-1.5" /> Compile & Export
+                <Grid className="w-4 h-4" /> Stitch & Export
               </button>
               <button
                 onClick={() => setSpriteFrames([])}
                 disabled={spriteFrames.length === 0}
-                className="btn-ghost w-full py-2.5 h-auto text-xs flex items-center justify-center gap-1.5 text-[#64748b] hover:text-red border border-transparent hover:border-red/20 hover:bg-red/5"
+                className="w-full py-2 bg-red/10 hover:bg-red text-red hover:text-white text-xs font-bold rounded-lg border border-red/20 hover:border-transparent transition-all flex items-center justify-center gap-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <Trash2 className="w-4 h-4" /> Clear Frames
+                <Trash2 className="w-3.5 h-3.5" /> Clear Frames
               </button>
             </div>
           </div>
@@ -336,14 +331,12 @@ export default function CanvasView({ history, spriteFrames, setSpriteFrames }: C
       </div>
 
       {/* Main Workspace */}
-      <div className="flex-1 flex flex-col glass-panel overflow-hidden relative min-h-[400px]">
+      <div className="flex-1 flex flex-col glass-panel overflow-hidden relative min-h-0 bg-black/40">
         {subTab === "draw" ? (
-          <div className="flex-1 flex items-center justify-center p-4 md:p-6 relative animate-fade-in">
-            <div className="absolute top-4 left-6 px-3 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-white/10 z-10">
-              <span className="text-[10px] uppercase tracking-widest text-[#94a3b8] font-bold">Sketchpad</span>
-            </div>
+          <div className="flex-1 flex items-center justify-center p-6 relative">
+            <span className="absolute top-4 left-6 text-[10px] uppercase tracking-widest text-[#64748b] font-bold">Drawing Canvas (Sketchpad)</span>
             <div 
-              className="border border-white/10 rounded-xl bg-black/60 shadow-2xl overflow-hidden checkerboard relative flex w-full max-w-2xl aspect-square items-center justify-center"
+              className="border border-white/12 rounded-xl bg-black/60 shadow-lg overflow-hidden checkerboard relative flex max-w-full max-h-[80%] items-center justify-center"
               onDragOver={(e) => e.preventDefault()}
               onDrop={handleCanvasDrop}
             >
@@ -355,39 +348,34 @@ export default function CanvasView({ history, spriteFrames, setSpriteFrames }: C
                 onMouseMove={draw}
                 onMouseUp={stopDrawing}
                 onMouseLeave={stopDrawing}
-                className="w-full h-full object-contain cursor-crosshair block bg-transparent"
+                className="max-w-[700px] max-h-full w-auto h-auto object-contain cursor-crosshair block"
               />
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col xl:flex-row min-h-0 animate-fade-in">
+          <div className="flex-1 flex min-h-0">
             {/* Sprite Grid Workspace */}
-            <div className="flex-1 flex flex-col p-4 md:p-6 min-w-0">
-              <div className="px-3 py-1 bg-black/60 backdrop-blur-md rounded-lg border border-white/10 w-max mb-4">
-                <span className="text-[10px] uppercase tracking-widest text-[#94a3b8] font-bold">Sprite Grid Preview</span>
-              </div>
+            <div className="flex-1 flex flex-col p-6 min-w-0">
+              <span className="text-[10px] uppercase tracking-widest text-[#64748b] font-bold mb-3">Stitched Sprite Grid Layout</span>
               
-              <div className="flex-1 bg-black/40 border border-white/5 rounded-xl p-4 md:p-6 overflow-auto checkerboard flex items-center justify-center content-start">
+              <div className="flex-1 bg-black/60 border border-white/5 rounded-xl p-4 overflow-auto checkerboard flex items-center justify-center content-start">
                 {spriteFrames.length === 0 ? (
-                  <div className="text-center">
-                    <Grid className="w-12 h-12 text-[#64748b] opacity-50 mx-auto mb-3" />
-                    <p className="text-xs text-[#64748b] font-medium">Select and add frames from the history panel.</p>
-                  </div>
+                  <div className="text-xs text-[#64748b]">Select and add frames from the history panel on the right.</div>
                 ) : (
                   <div 
-                    className="grid gap-1.5 border border-white/10 p-3 bg-black/60 rounded-xl shadow-2xl"
+                    className="grid gap-1 border border-white/12 p-2 bg-black/40 rounded-lg shadow-md"
                     style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
                   >
                     {spriteFrames.map((frame, index) => (
-                      <div key={index} className="relative aspect-square w-20 sm:w-24 border border-white/10 rounded-lg overflow-hidden group shadow-md bg-black">
+                      <div key={index} className="relative w-24 h-24 border border-white/5 rounded overflow-hidden group">
                         <img src={frame.url} alt="Sprite" className="w-full h-full object-cover" />
                         <button title="Action"
                           onClick={() => removeFrame(index)}
-                          className="absolute top-1 right-1 p-1 bg-red/90 hover:bg-red text-white rounded opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-md"
+                          className="absolute top-1 right-1 p-0.5 bg-black/70 hover:bg-[#ef4444] text-white rounded opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           <X className="w-3 h-3" />
                         </button>
-                        <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[9px] px-1.5 py-0.5 rounded font-bold backdrop-blur-md">
+                        <span className="absolute bottom-1 right-1 bg-black/70 text-white text-[8px] px-1 rounded font-bold">
                           {index + 1}
                         </span>
                       </div>
@@ -401,28 +389,26 @@ export default function CanvasView({ history, spriteFrames, setSpriteFrames }: C
             </div>
 
             {/* History Selector Column (Right) */}
-            <div className="w-full xl:w-[280px] border-t xl:border-t-0 xl:border-l border-white/10 bg-black/20 flex flex-col min-h-[250px] xl:min-h-0">
-              <div className="p-5 border-b border-white/5">
-                <span className="text-xs font-bold text-white uppercase tracking-wider">Session Frames</span>
+            <div className="w-64 border-l border-white/8 bg-black/25 flex flex-col min-h-0">
+              <div className="p-4 border-b border-white/5">
+                <span className="text-xs font-bold text-white uppercase tracking-wider">Frames Library</span>
               </div>
-              <div className="flex-1 overflow-y-auto p-5">
+              <div className="flex-1 overflow-y-auto p-4 flex flex-wrap gap-2.5 content-start justify-center">
                 {history.length === 0 ? (
-                  <div className="text-xs text-[#64748b] text-center mt-8">No frames generated yet.</div>
+                  <div className="text-xs text-[#64748b] text-center mt-4">No frames found.</div>
                 ) : (
-                  <div className="grid grid-cols-5 md:grid-cols-8 xl:grid-cols-3 gap-2">
-                    {history.map((img) => (
-                      <div
-                        key={img.id}
-                        onClick={() => addFrame(img)}
-                        className="group relative aspect-square rounded-lg overflow-hidden border border-white/10 hover:border-accent-main cursor-pointer bg-black/40 hover:scale-[1.02] hover:shadow-[0_0_15px_rgba(0,229,255,0.25)] transition-all"
-                      >
-                        <img src={img.url} alt="Frame" className="w-full h-full object-cover" />
-                        <div className="absolute inset-0 bg-accent-main/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity backdrop-blur-[1px]">
-                          <Plus className="w-6 h-6 text-white drop-shadow-md" />
-                        </div>
+                  history.map((img) => (
+                    <div
+                      key={img.id}
+                      onClick={() => addFrame(img)}
+                      className="group relative w-16 h-16 rounded-md overflow-hidden border border-white/8 hover:border-accent-main cursor-pointer bg-black/40 hover:scale-[1.03] transition-all"
+                    >
+                      <img src={img.url} alt="Frame" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                        <Plus className="w-5 h-5 text-accent-main" />
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))
                 )}
               </div>
             </div>

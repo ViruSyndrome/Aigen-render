@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import { Upload, Download, RefreshCw, Sliders, ZoomIn } from "lucide-react";
 import { uploadImage, submitGeneration, checkHistory } from "@/lib/api";
+import { GalleryImage } from "@/lib/db";
 
 const UPSCALER_MODELS = [
   { value: "4x-UltraSharp.pth", label: "4× UltraSharp (Best Detail)" },
@@ -11,7 +12,12 @@ const UPSCALER_MODELS = [
   { value: "8x_NMKD-Superscale-SP_177000_G.pth", label: "8× Superscale (Max Upscale)" },
 ];
 
-export default function CompressorView() {
+interface CompressorViewProps {
+  onAddHistoryImage: (img: GalleryImage) => void;
+  history: GalleryImage[];
+}
+
+export default function CompressorView({ onAddHistoryImage, history }: CompressorViewProps) {
   const [file, setFile] = useState<File | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
@@ -46,6 +52,18 @@ export default function CompressorView() {
     e.preventDefault();
     const droppedFile = e.dataTransfer.files?.[0];
     if (droppedFile && droppedFile.type.startsWith("image/")) loadFile(droppedFile);
+  };
+  const handleDropUrl = (e: React.DragEvent) => {
+    e.preventDefault();
+    const url = e.dataTransfer.getData("text/plain");
+    if (url && (url.startsWith("http") || url.startsWith("data:"))) {
+      fetch(url).then(r => r.blob()).then(blob => {
+        const f = new File([blob], "dropped_image.png", { type: blob.type || "image/png" });
+        loadFile(f);
+      });
+    } else {
+      handleDrop(e);
+    }
   };
 
   const compressImage = () => {
@@ -91,27 +109,43 @@ export default function CompressorView() {
         useTransparent: false,
         uploadedImageName: uploadedName,
         denoiseStrength: 0.0,
-        useRedbubble: true,
+        useRedbubble: true, // Internal flag to trigger upscaler node
         upscalerName: upscalerModel,
         upscaleScaleFactor: upscalerModel.startsWith("8x") ? 8.0 : 4.0,
       };
 
-      const { promptId } = await submitGeneration(params);
+      const { id } = await submitGeneration(params);
       let attempts = 0;
       const interval = setInterval(async () => {
         attempts++;
-        if (attempts > 60) {
+        if (attempts > 120) {
           clearInterval(interval);
-          setUpscaleStatus("Error: timed out.");
+          setUpscaleStatus("Upscale timed out");
           setIsUpscaling(false);
           return;
         }
-        const url = await checkHistory(promptId);
+        const url = await checkHistory(id);
         if (url) {
           clearInterval(interval);
           setUpscaleUrl(url);
-          setUpscaleStatus("");
+          setUpscaleStatus("Upscale complete!");
           setIsUpscaling(false);
+          
+          onAddHistoryImage({
+            id,
+            url,
+            prompt: `Upscaled with ${upscalerModel}`,
+            negativePrompt: "",
+            cfg: 1,
+            steps: 1,
+            width: 1024,
+            height: 1024,
+            modelName: upscalerModel,
+            timestamp: Date.now(),
+            stage: "edit",
+            isTransparent: false,
+            assetType: "texture"
+          });
         }
       }, 2000);
     } catch (e: any) {
@@ -134,152 +168,160 @@ export default function CompressorView() {
   };
 
   return (
-    <div className="flex-1 flex gap-5 p-5 min-h-0 overflow-y-auto">
-      {/* Settings column */}
-      <div className="w-80 flex flex-col gap-4 shrink-0">
+    <div className="flex-1 flex flex-col md:flex-row gap-5 p-4 md:p-6 min-h-0 overflow-y-auto">
+      {/* Settings column - Top on mobile, Left on desktop */}
+      <div className="w-full md:w-80 flex flex-col gap-5 shrink-0">
 
         {/* Compression Settings */}
-        <div className="glass-panel p-4 flex flex-col gap-4">
-          <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+        <div className="glass-panel p-5 flex flex-col gap-4">
+          <div className="flex items-center gap-2 border-b border-white/5 pb-3">
             <Sliders className="w-4 h-4 text-accent-main" />
-            <h3 className="text-xs font-bold uppercase tracking-wider text-white">Compression</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-white">Smart Compression</h3>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="flex justify-between items-center text-[10px]">
+            <label className="flex justify-between items-center text-[10px] font-bold text-[#64748b] uppercase">
               <span>Output Quality</span>
               <span className="text-accent-main font-mono">{Math.round(quality * 100)}%</span>
             </label>
-            <input type="range" min="0.1" max="1.0" step="0.05" value={quality}
-              onChange={(e) => setQuality(parseFloat(e.target.value))} disabled={!file} />
-            <p className="text-[9px] text-[#475569]">75–85% is the sweet spot. PNG files will be converted to JPEG.</p>
+            <input 
+              type="range" 
+              min="0.1" 
+              max="1.0" 
+              step="0.05" 
+              value={quality} 
+              onChange={e => setQuality(Number(e.target.value))} 
+              className="w-full accent-accent-main" 
+              disabled={isCompressing}
+            />
+            <p className="text-[9px] text-[#475569] leading-tight mt-1">Lower quality reduces file size significantly.</p>
           </div>
-          <button onClick={compressImage} disabled={!file || isCompressing}
-            className="w-full py-2.5 bg-accent-dim hover:bg-accent-main hover:text-bg-deep text-accent-main text-xs font-semibold rounded-lg border border-accent-main/20 hover:border-transparent transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
-            {isCompressing
-              ? <><RefreshCw className="w-4 h-4 animate-spin" /><span>Compressing...</span></>
-              : <><RefreshCw className="w-4 h-4" /><span>Compress Image</span></>}
+          <button 
+            onClick={compressImage} 
+            disabled={!file || isCompressing} 
+            className="btn-primary w-full py-3"
+          >
+            {isCompressing ? (
+              <><RefreshCw className="w-4 h-4 animate-spin" /> Compressing...</>
+            ) : (
+              <><Download className="w-4 h-4" /> Compress Asset</>
+            )}
           </button>
         </div>
 
-        {/* AI Upscaler */}
-        <div className="glass-panel p-4 flex flex-col gap-4">
-          <div className="flex items-center gap-2 border-b border-white/5 pb-2">
-            <ZoomIn className="w-4 h-4 text-accent-main" />
+        {/* AI Upscaler Settings */}
+        <div className="glass-panel p-5 flex flex-col gap-4">
+          <div className="flex items-center gap-2 border-b border-white/5 pb-3">
+            <ZoomIn className="w-4 h-4 text-purple" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-white">AI Upscaler</h3>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px]">Upscale Model</label>
-            <select value={upscalerModel} onChange={(e) => setUpscalerModel(e.target.value)}
-              className="bg-black/45 text-sm" disabled={!file || isUpscaling}>
-              {UPSCALER_MODELS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            <label className="text-[10px] font-bold text-[#64748b] uppercase tracking-wider">Upscaler Model</label>
+            <select
+              title="Upscaler Model"
+              value={upscalerModel}
+              onChange={(e) => setUpscalerModel(e.target.value)}
+              className="input-field"
+              disabled={isUpscaling}
+            >
+              {UPSCALER_MODELS.map(m => (
+                <option key={m.value} value={m.value}>{m.label}</option>
+              ))}
             </select>
-            <p className="text-[9px] text-[#475569]">Requires ComfyUI running. Uses the upscale model to 4× or 8× the image resolution.</p>
           </div>
-          {upscaleStatus && (
-            <div className="text-[10px] text-accent-main flex items-center gap-1.5 animate-pulse">
-              <RefreshCw className="w-3 h-3 animate-spin" />{upscaleStatus}
-            </div>
-          )}
-          {upscaleUrl && (
-            <a href={upscaleUrl} download={`upscaled_${file?.name}`}
-              className="flex items-center gap-1.5 py-1.5 px-2.5 bg-green/10 hover:bg-green text-green hover:text-[#07080f] border border-green/20 hover:border-transparent text-[10px] font-bold rounded-lg transition-all justify-center">
-              <Download className="w-3.5 h-3.5" /> Download Upscaled
-            </a>
-          )}
-          <button onClick={runUpscale} disabled={!file || isUpscaling}
-            className="w-full py-2.5 bg-white/5 hover:bg-accent-dim hover:text-accent-main text-[#94a3b8] text-xs font-semibold rounded-lg border border-white/8 hover:border-accent-main/20 transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed">
-            {isUpscaling
-              ? <><RefreshCw className="w-4 h-4 animate-spin" /><span>Upscaling...</span></>
-              : <><ZoomIn className="w-4 h-4" /><span>Run AI Upscaler</span></>}
+          <button 
+            onClick={runUpscale} 
+            disabled={!file || isUpscaling} 
+            className="w-full py-3 bg-purple/10 hover:bg-purple text-purple hover:text-white border border-purple/30 rounded-lg text-sm font-bold transition-all shadow-[0_0_15px_rgba(168,85,247,0.15)] flex items-center justify-center gap-2"
+          >
+            {isUpscaling ? (
+              <><RefreshCw className="w-4 h-4 animate-spin" /> Upscaling...</>
+            ) : (
+              <><ZoomIn className="w-4 h-4" /> Run AI Upscale</>
+            )}
           </button>
+          {upscaleStatus && (
+            <div className="text-xs text-center text-purple animate-pulse py-1 rounded bg-purple/10 border border-purple/20">
+              {upscaleStatus}
+            </div>
+          )}
         </div>
+      </div>
 
-        {/* Image Details */}
-        {file && (
-          <div className="glass-panel p-4 flex flex-col gap-3.5">
-            <div className="border-b border-white/5 pb-2">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-white">Image Details</h3>
+      {/* Main Preview Area */}
+      <div className="flex-1 flex flex-col gap-5 min-w-0">
+        
+        {/* Upload Zone */}
+        {!originalUrl && (
+          <div 
+            className="flex-1 glass-panel flex flex-col items-center justify-center p-6 border-dashed hover:border-accent-main/40 transition-colors cursor-pointer min-h-[300px]"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={handleDragOver}
+            onDrop={handleDropUrl}
+          >
+            <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center mb-4 border border-white/10 shadow-[0_0_30px_rgba(255,255,255,0.05)]">
+              <Upload className="w-8 h-8 text-[#94a3b8]" />
             </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-[#64748b]">Format:</span>
-              <span className="font-semibold text-[#e8edf5]">{file.type.split("/")[1]?.toUpperCase() || "Unknown"}</span>
+            <h3 className="font-bold text-white text-lg">Upload Asset</h3>
+            <p className="text-xs text-[#64748b] mt-1 mb-4">Drag & drop or click to browse</p>
+            <button className="btn-ghost px-6">Select Image</button>
+          </div>
+        )}
+
+        {/* Preview Split View */}
+        {originalUrl && (
+          <div className="flex-1 flex flex-col xl:flex-row gap-5 min-h-[400px]">
+            {/* Original Box */}
+            <div 
+              className="flex-1 glass-panel p-4 flex flex-col gap-3 relative"
+              onDragOver={handleDragOver}
+              onDrop={handleDropUrl}
+            >
+              <div className="flex justify-between items-center z-10 px-2 py-1 bg-black/40 backdrop-blur-md rounded-lg border border-white/10 mx-auto w-max mb-2">
+                <span className="text-xs font-bold text-white">Original Asset</span>
+                <span className="text-xs font-mono text-[#64748b] ml-4 bg-white/5 px-2 py-0.5 rounded">{formatSize(originalSize)}</span>
+              </div>
+              <div className="flex-1 relative flex items-center justify-center checkerboard rounded-xl border border-white/5 overflow-hidden">
+                <img src={originalUrl} alt="Original" className="max-w-full max-h-full object-contain" />
+              </div>
+              <button onClick={() => fileInputRef.current?.click()} className="btn-ghost text-[10px] w-full mt-2">Upload Different Image</button>
             </div>
-            <div className="flex justify-between text-xs">
-              <span className="text-[#64748b]">Original Size:</span>
-              <span className="font-mono text-[#e8edf5]">{formatSize(originalSize)}</span>
-            </div>
-            {compressedSize > 0 && (
-              <>
-                <div className="flex justify-between text-xs">
-                  <span className="text-[#64748b]">Compressed:</span>
-                  <span className="font-mono text-accent-main font-bold">{formatSize(compressedSize)}</span>
-                </div>
-                <div className="flex justify-between text-xs border-t border-white/5 pt-2">
-                  <span className="text-[#64748b]">Reduction:</span>
-                  <span className="text-green font-bold bg-green/10 px-2 py-0.5 rounded-full border border-green/20">
-                    -{reductionPercent()}% saved
+
+            {/* Compressed/Upscaled Box */}
+            {(compressedUrl || upscaleUrl || isCompressing || isUpscaling) && (
+              <div className="flex-1 glass-panel p-4 flex flex-col gap-3 relative animate-fade-in">
+                <div className="flex justify-between items-center z-10 px-2 py-1 bg-black/40 backdrop-blur-md rounded-lg border border-white/10 mx-auto w-max mb-2">
+                  <span className="text-xs font-bold text-accent-main">
+                    {upscaleUrl || isUpscaling ? "AI Upscaled" : "Compressed"}
                   </span>
+                  {compressedSize > 0 && !upscaleUrl && (
+                    <span className="text-xs font-mono text-green ml-4 bg-green/10 border border-green/20 px-2 py-0.5 rounded">
+                      {formatSize(compressedSize)} (-{reductionPercent()}%)
+                    </span>
+                  )}
                 </div>
-              </>
+                <div className="flex-1 relative flex items-center justify-center checkerboard rounded-xl border border-white/5 overflow-hidden group">
+                  {isCompressing || isUpscaling ? (
+                    <div className="flex flex-col items-center gap-3">
+                      <div className="w-12 h-12 border-4 border-accent-main/20 border-t-accent-main rounded-full animate-spin"></div>
+                      <span className="text-xs font-bold text-accent-main tracking-widest uppercase animate-pulse">Processing...</span>
+                    </div>
+                  ) : compressedUrl || upscaleUrl ? (
+                    <>
+                      <img src={(upscaleUrl || compressedUrl)!} alt="Result" className="max-w-full max-h-full object-contain" />
+                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                        <a href={(upscaleUrl || compressedUrl)!} download={`asset_${upscaleUrl ? 'upscaled' : 'compressed'}.png`} className="btn-primary shadow-lg">
+                          <Download className="w-4 h-4" /> Download
+                        </a>
+                      </div>
+                    </>
+                  ) : null}
+                </div>
+              </div>
             )}
           </div>
         )}
-      </div>
-
-      {/* Workspace */}
-      <div className="flex-1 flex flex-col glass-panel overflow-hidden relative min-h-0 bg-black/40">
-        {!file ? (
-          <div onDragOver={handleDragOver} onDrop={handleDrop} onClick={() => fileInputRef.current?.click()}
-            className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-white/8 hover:border-accent-main/40 m-6 rounded-xl cursor-pointer hover:bg-white/[0.01] transition-all gap-4">
-            <Upload className="w-12 h-12 text-[#64748b] animate-bounce" />
-            <div className="text-center">
-              <p className="text-sm font-semibold text-white">Drag & drop image here</p>
-              <p className="text-xs text-[#64748b] mt-1">or click to browse local files</p>
-            </div>
-            <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
-          </div>
-        ) : (
-          <div className="flex-1 flex min-h-0 p-6 gap-6 justify-center items-center">
-            {/* Original */}
-            <div className="flex-1 flex flex-col h-full min-h-0">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[10px] uppercase tracking-widest text-[#64748b] font-bold">Original</span>
-                <button onClick={() => { setFile(null); setOriginalUrl(null); setCompressedUrl(null); setUpscaleUrl(null); }}
-                  className="text-[9px] text-[#64748b] hover:text-white border border-white/10 hover:border-white/30 px-2 py-0.5 rounded transition-all">
-                  Change
-                </button>
-              </div>
-              <div className="flex-1 bg-black/60 border border-white/5 rounded-lg overflow-hidden flex items-center justify-center p-2 checkerboard">
-                <img src={originalUrl!} alt="Original" className="max-w-full max-h-full object-contain" />
-              </div>
-            </div>
-
-            {/* Result */}
-            <div className="flex-1 flex flex-col h-full min-h-0">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[10px] uppercase tracking-widest text-accent-main font-bold">
-                  {upscaleUrl ? "Upscaled Result" : "Compressed Result"}
-                </span>
-                {(compressedUrl || upscaleUrl) && (
-                  <a href={upscaleUrl || compressedUrl!}
-                    download={`${upscaleUrl ? "upscaled" : "compressed"}_${file.name}`}
-                    className="flex items-center gap-1 py-1 px-2.5 bg-green/10 hover:bg-green text-green hover:text-[#07080f] border border-green/20 hover:border-transparent text-[10px] font-bold rounded-lg transition-all">
-                    <Download className="w-3.5 h-3.5" /> Download
-                  </a>
-                )}
-              </div>
-              <div className="flex-1 bg-black/60 border border-white/5 rounded-lg overflow-hidden flex items-center justify-center p-2 checkerboard">
-                {upscaleUrl || compressedUrl ? (
-                  <img src={upscaleUrl || compressedUrl!} alt="Result" className="max-w-full max-h-full object-contain" />
-                ) : (
-                  <div className="text-xs text-[#64748b] text-center">
-                    <p>Run Compress or AI Upscale to see result</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
+        
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" className="hidden" />
       </div>
     </div>
   );

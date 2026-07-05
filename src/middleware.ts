@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import { clerkMiddleware } from "@clerk/nextjs/server";
 
-export function middleware(request: NextRequest) {
+export default clerkMiddleware(async (auth, request) => {
   const url = request.nextUrl.clone();
   const hostname = request.headers.get("host") || "";
 
@@ -20,7 +20,6 @@ export function middleware(request: NextRequest) {
     hostname.includes("aigenrendermerch") || 
     hostname.startsWith("merch.")
   ) {
-    // Rewrite path internally to /merch
     url.pathname = `/merch${url.pathname === "/" ? "" : url.pathname}`;
     return NextResponse.rewrite(url);
   }
@@ -30,15 +29,18 @@ export function middleware(request: NextRequest) {
     hostname.includes("aigenrenderasset") || 
     hostname.startsWith("asset.")
   ) {
-    // Rewrite path internally to /asset
     url.pathname = `/asset${url.pathname === "/" ? "" : url.pathname}`;
     return NextResponse.rewrite(url);
   }
 
-  // Default behavior (returns standard home route)
   return NextResponse.next();
-}
+});
 
 export const config = {
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  matcher: [
+    // Skip Next.js internals and all static files, unless found in search params
+    '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
+    // Always run for API routes
+    '/(api|trpc)(.*)',
+  ],
 };

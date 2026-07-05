@@ -3,6 +3,7 @@
 import React, { useState, useRef } from "react";
 import { Upload, RefreshCw, Layers, Download, Sliders, AlertTriangle } from "lucide-react";
 import { uploadImage, submitGeneration, checkHistory } from "@/lib/api";
+import { GalleryImage } from "@/lib/db";
 
 // Small colour swatch preview for the Chroma picker
 function ColorSwatch({ r, g, b }: { r: number; g: number; b: number }) {
@@ -14,7 +15,12 @@ function ColorSwatch({ r, g, b }: { r: number; g: number; b: number }) {
   );
 }
 
-export default function BgRemoverView() {
+interface BgRemoverViewProps {
+  onAddHistoryImage: (img: GalleryImage) => void;
+  history: GalleryImage[];
+}
+
+export default function BgRemoverView({ onAddHistoryImage, history }: BgRemoverViewProps) {
   const [file, setFile] = useState<File | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
@@ -95,23 +101,41 @@ export default function BgRemoverView() {
         rembgNode: "InspyrenetRembgAdvanced",
       };
 
-      const { promptId } = await submitGeneration(generateParams);
+      const { id } = await submitGeneration(generateParams);
       setStatusMessage("Awaiting result...");
       let attempts = 0;
       const interval = setInterval(async () => {
         attempts++;
-        if (attempts > 60) {
+        if (attempts > 120) {
           clearInterval(interval);
-          setStatusMessage("Error: Timed out waiting for result.");
+          setStatusMessage("Processing timed out");
           setIsProcessing(false);
           return;
         }
-        const url = await checkHistory(promptId);
+
+        const url = await checkHistory(id);
         if (url) {
           clearInterval(interval);
           setResultUrl(url);
-          setIsProcessing(false);
           setStatusMessage("");
+          setIsProcessing(false);
+          
+          // Add to history
+          onAddHistoryImage({
+            id,
+            url,
+            prompt: "Background Removal",
+            negativePrompt: "",
+            cfg: 1,
+            steps: 1,
+            width: 1024,
+            height: 1024,
+            modelName: "rembg",
+            timestamp: Date.now(),
+            stage: "edit",
+            isTransparent: true,
+            assetType: "sprite"
+          });
         }
       }, 2000);
     } catch (e: any) {
@@ -124,22 +148,22 @@ export default function BgRemoverView() {
   const isZeroColor = bgColorR === 0 && bgColorG === 0 && bgColorB === 0;
 
   return (
-    <div className="flex-1 flex gap-5 p-5 min-h-0 overflow-y-auto">
-      {/* Settings Panel */}
-      <div className="w-80 flex flex-col gap-4 shrink-0">
-        <div className="glass-panel p-4 flex flex-col gap-4">
-          <div className="flex items-center gap-2 border-b border-white/5 pb-2">
+    <div className="flex-1 flex flex-col md:flex-row gap-5 p-4 md:p-6 min-h-0 overflow-y-auto">
+      {/* Settings Panel - Top on mobile, Left on desktop */}
+      <div className="w-full md:w-80 flex flex-col gap-4 shrink-0">
+        <div className="glass-panel p-5 flex flex-col gap-5">
+          <div className="flex items-center gap-2 border-b border-white/5 pb-3">
             <Sliders className="w-4 h-4 text-accent-main" />
             <h3 className="text-xs font-bold uppercase tracking-wider text-white">Matting Options</h3>
           </div>
 
           {/* Method Selector */}
           <div className="flex flex-col gap-1.5">
-            <label className="text-[10px]">Removal Method</label>
+            <label className="text-[10px] font-bold text-[#64748b] uppercase">Removal Method</label>
             <select title="Removal Method"
               value={method}
               onChange={(e) => setMethod(e.target.value as any)}
-              className="bg-black/45 text-sm"
+              className="input-field"
               disabled={isProcessing}
             >
               <option value="inspyrenet">AI Inspyrenet (Recommended)</option>
@@ -148,195 +172,170 @@ export default function BgRemoverView() {
             </select>
           </div>
 
-          {/* Inspyrenet Settings */}
-          {method === "inspyrenet" && (
-            <div className="flex flex-col gap-1.5">
-              <label className="flex justify-between text-[10px]">
-                <span>Edge Trim Threshold</span>
-                <span className="font-mono text-accent-main">{threshold.toFixed(2)}</span>
-              </label>
-              <input title="Edge Trim Threshold"
-                type="range" min="0.1" max="0.9" step="0.05"
-                value={threshold}
-                onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                disabled={isProcessing}
-              />
-              <p className="text-[9px] text-[#475569]">
-                Higher = trim more edge pixels. Increase if you see a halo around the subject.
-              </p>
-            </div>
-          )}
-
-          {/* CLIPSeg Settings */}
+          {/* CLIPSeg settings */}
           {method === "clipseg" && (
-            <>
+            <div className="flex flex-col gap-3 animate-fade-in p-3 bg-white/[0.02] rounded-xl border border-white/5">
               <div className="flex flex-col gap-1.5">
-                <label className="text-[10px]">Describe What to Remove</label>
-                <input
+                <label className="text-[10px] text-[#64748b]">Target Subject to keep</label>
+                <input title="Target"
                   type="text"
                   value={clipsegText}
                   onChange={(e) => setClipsegText(e.target.value)}
-                  placeholder="e.g. background, floor, table"
-                  className="bg-black/45 text-sm"
+                  className="input-field"
+                  placeholder="e.g. background, character, tree"
                   disabled={isProcessing}
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="flex justify-between text-[10px]">
-                  <span>Sensitivity</span>
-                  <span className="font-mono text-accent-main">{threshold.toFixed(2)}</span>
-                </label>
-                <input title="Sensitivity"
-                  type="range" min="0.1" max="0.9" step="0.05"
-                  value={threshold}
-                  onChange={(e) => setThreshold(parseFloat(e.target.value))}
-                  disabled={isProcessing}
-                />
-              </div>
-            </>
+            </div>
           )}
 
-          {/* Chroma Color Keying */}
+          {/* Chroma settings */}
           {method === "colormask" && (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <label className="flex justify-between items-center text-[10px]">
-                  <span>Target Background Colour</span>
-                  <span className="font-mono text-accent-main uppercase">
-                    #{bgColorR.toString(16).padStart(2, '0')}{bgColorG.toString(16).padStart(2, '0')}{bgColorB.toString(16).padStart(2, '0')}
-                  </span>
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="color"
-                    value={`#${bgColorR.toString(16).padStart(2, '0')}${bgColorG.toString(16).padStart(2, '0')}${bgColorB.toString(16).padStart(2, '0')}`}
-                    onChange={(e) => {
-                      const hex = e.target.value;
-                      setBgColorR(parseInt(hex.slice(1, 3), 16));
-                      setBgColorG(parseInt(hex.slice(3, 5), 16));
-                      setBgColorB(parseInt(hex.slice(5, 7), 16));
-                    }}
-                    className="w-full h-10 rounded border border-white/10 cursor-pointer bg-black/20"
-                    disabled={isProcessing}
-                    title="Click to pick a color, or use the eyedropper"
-                  />
+            <div className="flex flex-col gap-3 animate-fade-in p-3 bg-white/[0.02] rounded-xl border border-white/5">
+              <p className="text-[10px] text-accent-main leading-tight">Pick the exact color to make transparent.</p>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] text-[#64748b]">Red (0-255)</label>
+                  <input title="R" type="number" min="0" max="255" value={bgColorR} onChange={e => setBgColorR(Number(e.target.value))} className="input-field px-2" disabled={isProcessing} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] text-[#64748b]">Green (0-255)</label>
+                  <input title="G" type="number" min="0" max="255" value={bgColorG} onChange={e => setBgColorG(Number(e.target.value))} className="input-field px-2" disabled={isProcessing} />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[9px] text-[#64748b]">Blue (0-255)</label>
+                  <input title="B" type="number" min="0" max="255" value={bgColorB} onChange={e => setBgColorB(Number(e.target.value))} className="input-field px-2" disabled={isProcessing} />
                 </div>
               </div>
-
-              {/* Zero-colour warning */}
+              <ColorSwatch r={bgColorR} g={bgColorG} b={bgColorB} />
+              
+              <div className="flex flex-col gap-1 mt-1">
+                <div className="flex justify-between">
+                  <label className="text-[9px] text-[#64748b]">Tolerance</label>
+                  <span className="text-[9px] text-white font-mono">{bgColorTolerance}</span>
+                </div>
+                <input title="Tolerance" type="range" min="0" max="100" value={bgColorTolerance} onChange={e => setBgColorTolerance(Number(e.target.value))} className="w-full accent-accent-main" disabled={isProcessing} />
+              </div>
               {isZeroColor && (
-                <div className="flex items-start gap-2 p-2.5 bg-yellow-400/5 border border-yellow-400/20 rounded-lg">
-                  <AlertTriangle className="w-3.5 h-3.5 text-yellow-400 shrink-0 mt-0.5" />
-                  <p className="text-[9px] text-yellow-400 leading-relaxed">
-                    Pure black selected. Set the color to match your actual background colour (e.g. green screen).
-                  </p>
+                <div className="flex items-start gap-2 text-amber mt-1 bg-amber/10 p-2 rounded border border-amber/20">
+                  <AlertTriangle className="w-3 h-3 shrink-0 mt-0.5" />
+                  <p className="text-[9px] leading-tight">Pure black (0,0,0) might clip shadows. Ensure your background is actually 100% black.</p>
                 </div>
               )}
-
-              {/* Tolerance */}
-              <div className="flex flex-col gap-1.5">
-                <label className="flex justify-between text-[10px]">
-                  <span>Colour Tolerance</span>
-                  <span className="font-mono text-accent-main">{bgColorTolerance}</span>
-                </label>
-                <input title="Colour Tolerance"
-                  type="range" min="5" max="120" step="1"
-                  value={bgColorTolerance}
-                  onChange={(e) => setBgColorTolerance(parseInt(e.target.value))}
-                  disabled={isProcessing}
-                />
-                <p className="text-[9px] text-[#475569]">
-                  Higher = removes more similar shades. Use 20–50 for solid backgrounds.
-                </p>
-              </div>
-            </>
+            </div>
           )}
 
-          {/* Process Button */}
+          {/* Threshold (used by inspyrenet & clipseg) */}
+          {(method === "inspyrenet" || method === "clipseg") && (
+            <div className="flex flex-col gap-1.5 p-3 bg-white/[0.02] rounded-xl border border-white/5">
+              <div className="flex justify-between">
+                <label className="text-[10px] text-[#64748b]">Mask Threshold</label>
+                <span className="text-[10px] text-white font-mono">{threshold.toFixed(2)}</span>
+              </div>
+              <input title="Threshold"
+                type="range"
+                min="0.0"
+                max="1.0"
+                step="0.05"
+                value={threshold}
+                onChange={(e) => setThreshold(parseFloat(e.target.value))}
+                className="w-full accent-accent-main"
+                disabled={isProcessing}
+              />
+              <p className="text-[9px] text-[#475569] leading-tight mt-1">Higher values remove more background, lower values keep more details.</p>
+            </div>
+          )}
+
           <button
             onClick={removeBackground}
             disabled={!file || isProcessing}
-            className="w-full py-2.5 bg-accent-dim hover:bg-accent-main hover:text-bg-deep text-accent-main text-xs font-semibold rounded-lg border border-accent-main/20 hover:border-transparent transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+            className="btn-primary w-full py-3 mt-2"
           >
             {isProcessing ? (
-              <><RefreshCw className="w-4 h-4 animate-spin" /><span>Removing...</span></>
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" /> Processing...
+              </>
             ) : (
-              <><Layers className="w-4 h-4" /><span>Remove Background</span></>
+              <>
+                <Layers className="w-4 h-4" /> Remove Background
+              </>
             )}
           </button>
+          
+          {statusMessage && (
+            <div className="text-xs text-center text-accent-main animate-pulse-glow py-1 rounded bg-accent-main/10 border border-accent-main/20">
+              {statusMessage}
+            </div>
+          )}
         </div>
-
-        {statusMessage && (
-          <div className="glass-panel p-3 border-accent-dim bg-accent-dim/5 text-xs text-accent-main font-semibold flex items-center gap-2 animate-pulse">
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-            <span>{statusMessage}</span>
-          </div>
-        )}
+        
+        {/* Helper text */}
+        <div className="glass-panel p-4 opacity-70">
+          <h4 className="text-xs font-bold text-white mb-2">Tips</h4>
+          <ul className="text-[10px] text-[#94a3b8] flex flex-col gap-2 list-disc pl-3">
+            <li><strong>Inspyrenet</strong> is best for general characters, props, and complex shapes.</li>
+            <li><strong>Color Keying</strong> works perfectly for flat UI elements or sprites generated on pure green/black backgrounds.</li>
+            <li>Adjust threshold if the edges look jagged.</li>
+          </ul>
+        </div>
       </div>
 
-      {/* Main Workspace */}
-      <div className="flex-1 flex flex-col glass-panel overflow-hidden relative min-h-0 bg-black/40">
-        {!file ? (
-          <div
-            onDragOver={handleDragOver}
-            onDrop={handleDropUrl}
-            onClick={() => fileInputRef.current?.click()}
-            className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-white/8 hover:border-accent-main/40 m-6 rounded-xl cursor-pointer hover:bg-white/[0.01] transition-all gap-4"
-          >
-            <Upload className="w-12 h-12 text-[#64748b] animate-bounce" />
-            <div className="text-center">
-              <p className="text-sm font-semibold text-white">Drag & drop image here</p>
-              <p className="text-xs text-[#64748b] mt-1">or click to browse — also accepts drag from the generator</p>
-            </div>
-            <input title="Upload Image"
-              type="file" ref={fileInputRef} onChange={handleFileChange}
-              accept="image/*" className="hidden"
-            />
-          </div>
-        ) : (
-          <div className="flex-1 flex min-h-0 p-6 gap-6 justify-center items-center">
-            {/* Original */}
-            <div className="flex-1 flex flex-col h-full min-h-0">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[10px] uppercase tracking-widest text-[#64748b] font-bold">Original Image</span>
-                <button
-                  onClick={() => { setFile(null); setOriginalUrl(null); setResultUrl(null); }}
-                  className="text-[9px] text-[#64748b] hover:text-white border border-white/10 hover:border-white/30 px-2 py-0.5 rounded transition-all"
+      {/* Main Preview Area */}
+      <div className="flex-1 flex flex-col gap-5 min-w-0">
+        <div 
+          className="flex-1 glass-panel flex items-center justify-center p-6 relative overflow-hidden checkerboard min-h-[300px]"
+          onDragOver={handleDragOver}
+          onDrop={handleDropUrl}
+        >
+          {resultUrl ? (
+            <div className="relative group w-full h-full flex items-center justify-center animate-fade-in">
+              <img src={resultUrl} alt="Result" className="max-w-full max-h-full object-contain drop-shadow-2xl" />
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg backdrop-blur-sm">
+                <a 
+                  href={resultUrl} 
+                  download="bg-removed.png"
+                  className="btn-primary"
                 >
-                  Change
-                </button>
-              </div>
-              <div className="flex-1 bg-black/60 border border-white/5 rounded-lg overflow-hidden flex items-center justify-center p-2 checkerboard">
-                <img src={originalUrl!} alt="Original" className="max-w-full max-h-full object-contain" />
+                  <Download className="w-4 h-4" /> Download Transparent PNG
+                </a>
               </div>
             </div>
-
-            {/* Result */}
-            <div className="flex-1 flex flex-col h-full min-h-0">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-[10px] uppercase tracking-widest text-accent-main font-bold">Transparent Result</span>
-                {resultUrl && (
-                  <a
-                    href={resultUrl}
-                    download={`nobg_${file.name}`}
-                    className="flex items-center gap-1 py-1 px-2.5 bg-green/10 hover:bg-green text-green hover:text-[#07080f] border border-green/20 hover:border-transparent text-[10px] font-bold rounded-lg transition-all"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Download PNG
-                  </a>
-                )}
-              </div>
-              <div className="flex-1 bg-black/60 border border-white/5 rounded-lg overflow-hidden flex items-center justify-center p-2 checkerboard">
-                {resultUrl ? (
-                  <img src={resultUrl} alt="Transparent Result" className="max-w-full max-h-full object-contain" />
-                ) : (
-                  <div className="text-xs text-[#64748b] text-center">
-                    <p>Hit &quot;Remove Background&quot; to process</p>
-                  </div>
-                )}
-              </div>
+          ) : originalUrl ? (
+            <div className="relative w-full h-full flex items-center justify-center animate-fade-in">
+              <img src={originalUrl} alt="Original" className="max-w-full max-h-full object-contain opacity-60 transition-opacity hover:opacity-100" />
+              {isProcessing && (
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-md flex flex-col items-center justify-center rounded-lg">
+                   <div className="w-16 h-16 border-4 border-accent-main/20 border-t-accent-main rounded-full animate-spin"></div>
+                   <p className="mt-4 text-accent-main font-bold tracking-wider uppercase text-sm animate-pulse">Removing Background</p>
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          ) : (
+            <div className="flex flex-col items-center gap-4 text-[#64748b]">
+              <div className="w-20 h-20 rounded-full bg-white/5 flex items-center justify-center border border-white/10 shadow-[0_0_30px_rgba(255,255,255,0.05)]">
+                <Upload className="w-8 h-8 text-[#94a3b8]" />
+              </div>
+              <div className="text-center">
+                <p className="font-semibold text-white">Drag & drop image here</p>
+                <p className="text-xs mt-1">or click to browse from device</p>
+              </div>
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="btn-ghost mt-2"
+              >
+                Select File
+              </button>
+            </div>
+          )}
+          
+          <input 
+            type="file" 
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            accept="image/*"
+            className="hidden"
+          />
+        </div>
       </div>
     </div>
   );
